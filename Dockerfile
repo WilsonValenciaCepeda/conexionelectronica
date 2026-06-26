@@ -1,4 +1,4 @@
-FROM php:8.3-fpm-bookworm
+FROM php:8.2-fpm
 
 RUN apt-get update && apt-get install -y \
     libpq-dev \
@@ -10,15 +10,11 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /var/www/html
 
-COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
+COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
 COPY . .
 
-# Instalar Node.js (para Breeze)
-RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
-    && apt-get install -y nodejs
-
-RUN composer install --no-interaction --optimize-autoloader --no-dev
+RUN composer install --no-interaction --no-dev
 
 RUN php artisan key:generate
 
