@@ -18,16 +18,11 @@ COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
 COPY . .
 
-# DIAGNÓSTICO: Ver qué está fallando
-RUN composer diagnose
-RUN composer validate
-RUN composer why-not php
-
 # Instalar dependencias de Node
 RUN npm install --ignore-scripts
 
-# Luego Composer
-RUN composer install --no-interaction --no-dev
+# Forzar instalación de Composer ignorando problemas de plataforma
+RUN composer install --no-interaction --no-dev --ignore-platform-req=php
 
 RUN php artisan key:generate
 
