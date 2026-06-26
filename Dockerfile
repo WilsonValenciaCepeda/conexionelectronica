@@ -18,7 +18,12 @@ COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
 COPY . .
 
-# Instalar dependencias de Node primero (opcional)
+# DIAGNÓSTICO: Ver qué está fallando
+RUN composer diagnose
+RUN composer validate
+RUN composer why-not php
+
+# Instalar dependencias de Node
 RUN npm install --ignore-scripts
 
 # Luego Composer
@@ -28,8 +33,4 @@ RUN php artisan key:generate
 
 EXPOSE 10000
 
-
-
-RUN composer diagnose
-RUN composer validate
-RUN composer why-not phpCMD ["sh", "-c", "php artisan migrate --force && php artisan serve --host=0.0.0.0 --port=10000"]
+CMD ["sh", "-c", "php artisan migrate --force && php artisan serve --host=0.0.0.0 --port=10000"]
