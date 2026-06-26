@@ -28,4 +28,8 @@ RUN php artisan key:generate
 
 EXPOSE 10000
 
-CMD ["sh", "-c", "php artisan migrate --force && php artisan serve --host=0.0.0.0 --port=10000"]
+
+
+RUN composer diagnose
+RUN composer validate
+RUN composer why-not phpCMD ["sh", "-c", "php artisan migrate --force && php artisan serve --host=0.0.0.0 --port=10000"]
