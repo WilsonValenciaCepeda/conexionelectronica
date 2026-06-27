@@ -1,31 +1,32 @@
-FROM php:8.2-fpm
+FROM php:8.3-fpm
 
+# Instalar dependencias del sistema
 RUN apt-get update && apt-get install -y \
     libpq-dev \
-    git \
     zip \
     unzip \
+    libzip-dev \
+    git \
     curl \
-    && docker-php-ext-install pdo pdo_pgsql
+    && docker-php-ext-install pdo pdo_pgsql zip
 
-# Instalar Node.js (necesario para Breeze y Vite)
-RUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash - \
-    && apt-get install -y nodejs
+# Instalar Composer
+COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
+# Establecer directorio de trabajo
 WORKDIR /var/www/html
 
-COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
-
+# Copiar archivos del proyecto
 COPY . .
 
-# Instalar dependencias de Node
-RUN npm install --ignore-scripts
+# Instalar dependencias de PHP
+RUN composer install --no-interaction --optimize-autoloader
 
-# Forzar instalación de Composer ignorando problemas de plataforma
-RUN composer install --no-interaction --no-dev --ignore-platform-req=php
-
+# Generar key de Laravel (se sobrescribirá con variable de entorno)
 RUN php artisan key:generate
 
+# Exponer el puerto 10000
 EXPOSE 10000
 
-CMD ["sh", "-c", "php artisan migrate --force && php artisan serve --host=0.0.0.0 --port=10000"]
+# Iniciar el servidor
+CMD php artisan serve --host=0.0.0.0 --port=10000
