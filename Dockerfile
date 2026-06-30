@@ -1,9 +1,6 @@
-# Usar imagen oficial de PHP con Apache
-FROM php:8.3-apache
+FROM php:8.3-fpm
 
-# ============================================
-# 1. INSTALAR DEPENDENCIAS DEL SISTEMA
-# ============================================
+# Instalar dependencias
 RUN apt-get update && apt-get install -y \
     libpq-dev \
     zip \
@@ -11,69 +8,57 @@ RUN apt-get update && apt-get install -y \
     libzip-dev \
     git \
     curl \
+    nginx \
     && docker-php-ext-install pdo pdo_pgsql zip
 
-# ============================================
-# 2. HABILITAR MOD_REWRITE DE APACHE
-# ============================================
-RUN a2enmod rewrite
-
-# ============================================
-# 3. INSTALAR COMPOSER
-# ============================================
+# Instalar Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
-# ============================================
-# 4. ESTABLECER DIRECTORIO DE TRABAJO
-# ============================================
 WORKDIR /var/www/html
 
-# ============================================
-# 5. COPIAR ARCHIVOS DEL PROYECTO
-# ============================================
+# Copiar archivos del proyecto
 COPY . .
 
-# ============================================
-# 6. CONFIGURAR PERMISOS (¡CRÍTICO!)
-# ============================================
+# Configurar permisos
 RUN chown -R www-data:www-data storage bootstrap/cache
 RUN chmod -R 775 storage bootstrap/cache
 RUN chmod +x artisan
 
-# ============================================
-# 7. CREAR ENLACE SIMBÓLICO PARA STORAGE
-# ============================================
-RUN php artisan storage:link
-
-# ============================================
-# 8. INSTALAR DEPENDENCIAS DE PHP
-# ============================================
+# Instalar dependencias
 RUN composer install --no-interaction --optimize-autoloader --no-dev
 
-# ============================================
-# 9. GENERAR APP_KEY
-# ============================================
+# Generar key
 RUN php artisan key:generate
 
-# ============================================
-# 10. LIMPIAR Y CACHEAR CONFIGURACIÓN
-# ============================================
-RUN php artisan config:cache
-RUN php artisan route:cache
-RUN php artisan view:cache
+# Crear enlace simbólico para storage
+RUN php artisan storage:link
 
-# ============================================
-# 11. CONFIGURAR APACHE PARA USAR PUERTO 10000
-# ============================================
-RUN sed -i 's/Listen 80/Listen 10000/g' /etc/apache2/ports.conf
-RUN sed -i 's!/var/www/html!/var/www/html/public!g' /etc/apache2/sites-available/000-default.conf
+# Configurar Nginx (APUNTA AL DIRECTORIO PUBLIC)
+RUN echo "server {
+    listen 10000;
+    root /var/www/html/public;
+    index index.php index.html;
 
-# ============================================
-# 12. EXPONER PUERTO 10000
-# ============================================
+    location / {
+        try_files \$uri \$uri/ /index.php?\$query_string;
+    }
+
+    location ~ \.php$ {
+        fastcgi_pass 127.0.0.1:9000;
+        fastcgi_index index.php;
+        fastcgi_param SCRIPT_FILENAME \$document_root\$fastcgi_script_name;
+        include fastcgi_params;
+    }
+
+    location ~ /\.ht {
+        deny all;
+    }
+}" > /etc/nginx/sites-available/default
+
+# Crear directorio para PHP-FPM
+RUN mkdir -p /run/php
+
 EXPOSE 10000
 
-# ============================================
-# 13. INICIAR APACHE
-# ============================================
-CMD ["apache2-foreground"]
+# Iniciar PHP-FPM y Nginx
+CMD php-fpm -D && nginx -g 'daemon off;'
